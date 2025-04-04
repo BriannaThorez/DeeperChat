@@ -18,29 +18,29 @@ DeeperChat is a powerful terminal-based chatbot that leverages the DeepSeek API 
 
 ## ✨ Key Features
 
-**💬 Smart Terminal Chat**  
+#### 💬 Smart Terminal Chat  
 - Natural conversations with DeepSeek's advanced AI  
 - Streamed responses for real-time interaction  
 - Customizable user/assistant names  
 
-**📋 Code Block Recognition**  
+#### 📋 Code Block Recognition  
 - Beautiful syntax highlighting (with Rich if available)  
 - One-key copy functionality (just press the block number)  
 - Plain-text fallback when Rich isn't available  
 
-**🔄 Dynamic Module System**  
+#### 🔄 Dynamic Module System  
 - Hot-swappable modules without restarting  
 - "Expansive" directory for experimental versions of its own foundation code 
 - Automatic fallback to stable versions  
 
-**🔒 Secure Configuration**  
+#### 🔒 Secure Configuration  
 - Interactive first-time setup wizard  
 - API key validation and protection  
 - User profile management  
 
 ## 🚀 Roadmap
 
-**📚 Chat With Your Documents**  
+#### 📚 Chat With Your Documents  
 - Ingest and query your personal files  
 - Smart chunking to maintain context  
 - Vector database integration  
@@ -51,7 +51,7 @@ DeeperChat is a powerful terminal-based chatbot that leverages the DeepSeek API 
 - **VectorDB Context metadata**
     Better conversation continuity and improved long-context handling using timestamps, usernames, and other contextual gamechangers in vectorDB metadata
 
-**⚙️ Enhanced Module System**  
+#### ⚙️ Enhanced Module System  
 - Versioned module updates  
 - Dependency management  
 - Safe rollback capabilities  
