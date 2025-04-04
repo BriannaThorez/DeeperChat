@@ -15,6 +15,7 @@ DeeperChat is a powerful terminal-based chatbot that leverages the DeepSeek API 
     <p> </p>
   </div>
 </div>
+
 ## ✨ Key Features
 
 **💬 Smart Terminal Chat**  
@@ -44,7 +45,7 @@ DeeperChat is a powerful terminal-based chatbot that leverages the DeepSeek API 
 - Smart chunking to maintain context  
 - Vector database integration  
 
-####🔍 Smarter Context Understanding  
+#### 🔍 Smarter Context Understanding  
 - **Coreference resolution**
     Better contextual continuity via tracking "it", "they" across messages, replacing with proper nouns for superior contextual handling even from chunks of larger data.  
 - **VectorDB Context metadata**
