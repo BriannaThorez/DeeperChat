@@ -1,9 +1,7 @@
 # DeeperChat - Terminal AI Assistant
-![Screenshot 2025-04-04 084950](https://github.com/user-attachments/assets/56bf1b40-db72-499f-9ee6-70a6174d0b9f)
 <div style="display: flex; overflow-x: auto; gap: 16px; padding: 16px 0;">
   <div style="flex: 0 0 auto; min-width: 300px; text-align: left;">
-    <img src="https://github.com/user-attachments/assets/56bf1b40-db72-499f-9ee6-70a6174d0b9f" style="height: 200px; border-radius: 8px;">
-    <img src="./images/2.png" style="height: 200px; border-radius: 8px;">
+    <img src="https://github.com/user-attachments/assets/56bf1b40-db72-499f-9ee6-70a6174d0b9f" style="height: 400px; border-radius: 8px;">
     <p> </p>
   </div>
 </div>
