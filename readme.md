@@ -1,5 +1,5 @@
 # DeeperChat - Terminal AI Assistant
-![Screenshot 2025-04-04 084950](https://github.com/user-attachments/assets/56bf1b40-db72-499f-9ee6-70a6174d0b9f=600x)
+![Screenshot 2025-04-04 084950](https://github.com/user-attachments/assets/56bf1b40-db72-499f-9ee6-70a6174d0b9f)
 
 DeeperChat is a powerful terminal-based chatbot that leverages the DeepSeek API to deliver intelligent conversations right in your command line. Designed for developers, researchers, and power users who prefer working in the terminal.
 
