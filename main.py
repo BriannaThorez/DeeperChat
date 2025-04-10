@@ -1,3 +1,8 @@
+"""
+DeeperChat
+Author: Brianna Thorez
+https://github.com/BriannaThorez/DeeperChat
+"""
 #main.py    
 #--- IMPORTS ---
 #System level imports
@@ -5,7 +10,7 @@ import os
 import re
 import sys
 import json
-from typing import Iterator, Optional
+from typing import Iterator, Optional, List, Dict 
 
 #External packages which need to be installed via requirements
 from utilities.requirements import check_and_install_requirements#install requirements
@@ -18,8 +23,10 @@ from utilities.terminal_resize import increase_terminal_buffer
 increase_terminal_buffer()
 from utilities.dynamic_importer import dynamic_import
 from utilities.setup_config import ensure_config
-
+from utilities.token_counter import truncate_history_by_tokens
 #Program-related module scripts
+from cognition_handler import ResponseHandler
+
 # Attempt to import expansive module versions with fallback to default module with source tracking
 prompt_handler, import_error, source = dynamic_import("prompt_handler")
 if prompt_handler:
@@ -32,6 +39,7 @@ else:
     if import_error:
         print(f"Reason: {import_error.splitlines()[0]}")
     sys.exit(1)
+
 #--- END IMPORTS ---
 
 # ==============================================
@@ -99,27 +107,39 @@ def display_code_blocks(blocks: list[dict]):
 # ==============================================
 # API Streaming Function
 # ==============================================
-def stream_deepseek_api(prompt: str, api_key: str) -> Iterator[str]:
-    url = "https://api.deepseek.com/v1/chat/completions"  
-    
+def stream_deepseek_api(history: List[Dict[str, str]], api_key: str) -> Iterator[str]:
+    """
+    Streams response from DeepSeek API using conversation history.
+
+    Args:
+        history: A list of message dictionaries, e.g.,
+                 [{"role": "user", "content": "Hello"},
+                  {"role": "assistant", "content": "Hi there!"}]
+        api_key: The DeepSeek API key.
+
+    Yields:
+        String chunks of the API response.
+    """
+    url = "https://api.deepseek.com/v1/chat/completions"
+
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
-        "Accept": "text/event-stream"  
+        "Accept": "text/event-stream"
     }
-    
+
     data = {
         "model": "deepseek-chat",
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": history, # <-- Use the provided history
         "stream": True,
-        "max_tokens": 8000,  # Increased from default
+        "max_tokens": 8000,
         "temperature": 0.1
     }
-    
+
     try:
         with requests.post(url, headers=headers, json=data, stream=True) as response:
             response.raise_for_status()
-            
+
             for line in response.iter_lines():
                 if line:
                     decoded_line = line.decode('utf-8')
@@ -143,57 +163,108 @@ def stream_deepseek_api(prompt: str, api_key: str) -> Iterator[str]:
 # ==============================================
 
 def chat_loop(api_key: str, use_rich: bool = True):
-    global prompt
+
+    global prompt # Keep prompt global if needed elsewhere, though maybe reconsider later
+    system_timestamp = cognition_handler._generate_timestamp() 
+    system_message_timestamp  = f"{system_timestamp}"
+    system_message_content = f"""You are a helpful assistant with retrieval from a vector database, which contains documents and chat history between yourself and users. Use the additional context where appropriate to privide concise and accurate answers."""
+    system_message = f"{system_message_timestamp} {system_message_content}"
+
+    # --- Initialize the history list with the system message ---
+    conversation_history: List[Dict[str, str]] = [
+        {"role": "system", "content": system_message}
+    ]
     while True:
         print(f"\n{AppName} Type [exit] or [quit] to end chat")
-        prompt = input(f"\n{user_name}: ")
-        
-        if prompt.lower() in ('exit', 'quit'):
+        # Keep the original prompt for storage/display if needed
+        original_prompt = input(f"\n{user_name}: ")
+
+        if original_prompt.lower() in ('exit', 'quit'):
             print("Ending chat session...")
             break
-            
-         
-        if not prompt.strip():
-            print("Please enter a valid prompt.")
-            continue
 
-        enhanced_prompt = enhance_prompt(prompt)
+        if not original_prompt.strip():
+            print("Please enter a valid prompt.")          
+
+        # Enhance the prompt with DB search results        
+        enhanced_prompt = enhance_prompt(original_prompt)
+        # --- Add user message to Messages conversation history---
+        conversation_history.append({"role": "user", "content": enhanced_prompt}) # <-- Add user prompt to history
+
+        # --- Messages Truncation ---
+        # Uses token limit to determine maximum messages length and adjust accordingly
+        MAX_HISTORY_TOKENS = 5000
+        conversation_history, current_token_count = truncate_history_by_tokens(
+            history=conversation_history,
+            max_tokens=MAX_HISTORY_TOKENS
+        )
+        print(f"[Debug] Token count after truncation: {current_token_count}")
+        # --- End Truncation  ---
+        # --- Update System Message with Current Timestamp ---
+        current_system_message_timestamp = cognition_handler._generate_timestamp() # Line 1: Get timestamp
+        conversation_history[0]['content'] =  f"{current_system_message_timestamp} {system_message_content}"
+
+       # --- End Update ---
+        # --- Print response (streaming) ---
         print(f"\n{assistant_name}: ", end='', flush=True)
-        
         full_response = []
-        for chunk in stream_deepseek_api(enhanced_prompt, api_key):
+        # Pass messages history to the API function
+        for chunk in stream_deepseek_api(conversation_history, api_key): 
             print(chunk, end='', flush=True)
             full_response.append(chunk)
-            
-        print()
-        
-        if use_rich and any('```' in line for line in full_response):
-            extracted_code = extract_code_blocks(''.join(full_response))
+        response_text = ''.join(full_response)
+        # --- END Print response (streaming) ---
+        # --- Add assistant response to Messages conversation history ---
+        if response_text and not response_text.startswith("\nAPI request failed:"): # Avoid adding error messages as assistant responses
+             conversation_history.append({"role": "assistant", "content": response_text})
+        print("\n--- Full Conversation History ---")
+        for message_dict in conversation_history:
+            content = message_dict.get("content", "") # Get the content, default to empty string if missing
+            print(f"\033[32m{content}\033[0m") # Print content in green
+        print("---------------------------------\n")
+
+        # --- Store the prompt and response in ChromaDB---
+        """
+        First, Remove enhanced prompt with search results and replace with original user prompt
+        to ensure an uncluttered chat-history and plenty of space for new results
+        Then, Add most recent messages user and assistant to DB
+        """
+        conversation_history[-2]['content'] = original_prompt
+        latest_response_message = conversation_history[-1]['content']
+        latest_user_message = conversation_history[-2]['content']
+        cognition_handler.store_response(user_name, assistant_name, latest_user_message, latest_response_message)
+        # ---END Store the prompt and response in ChromaDB---
+
+        if use_rich and any('```' in line for line in full_response): # Check if response contains code blocks
+            extracted_code = extract_code_blocks(response_text) # Pass full response text
             if extracted_code:
                 print("\n[Code Output]")
                 display_code_blocks(extracted_code)
+
+
+
+
 def extract_code_blocks(text: str) -> list[dict]:
-    """Robust code block extraction that handles extra backticks"""
+    """Robust code block extraction that handles:
+    - Properly formatted code blocks only
+    - Nested backticks within code
+    - Language specifiers
+    - Won't match plain text between blocks
+    """
     import re
-    # Improved pattern that handles:
-    # 1. Nested code blocks
-    # 2. Extra backticks in content
-    # 3. Multiple language specifiers
-    pattern = r'```(?:([a-zA-Z0-9\+]*)\n)?(.*?)(?=\n```|$)'
-    matches = re.findall(pattern, text, re.DOTALL)
+    # This pattern strictly matches proper code blocks only
+    pattern = r'```([a-zA-Z0-9\+]*)\n([\s\S]*?)\n```'
+    matches = re.findall(pattern, text)
     
     blocks = []
     for lang, content in matches:
         content = content.strip()
-        # Remove any remaining triple backticks that might be in content
-        content = content.replace('```', '')
         if content:  # Only add non-empty blocks
             blocks.append({
                 'language': lang or 'text',
                 'content': content
             })
     return blocks
-
 
 # ==============================================
 # Main Execution
@@ -214,6 +285,6 @@ if __name__ == "__main__":
     user_name = config['user_name']
     assistant_name = "Assistant"
     prompt = None
-    
+    cognition_handler = ResponseHandler()
     # Start chat loop with Rich disabled if not available
     chat_loop(config['deepseek_api_key'], use_rich=RICH_AVAILABLE)
